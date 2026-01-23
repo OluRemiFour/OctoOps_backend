@@ -2,11 +2,11 @@
   "name": "octoops_backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node-dev src/index.ts"
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev server.ts"
   },
   "keywords": [],
   "author": "",
