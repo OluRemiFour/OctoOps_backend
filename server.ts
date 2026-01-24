@@ -10,16 +10,16 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://octoops.vercel.app'], // Add your Vercel URL here if known
+  origin: ['http://localhost:3000', 'https://octo-ops.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
 
 // Database Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/octoops';
+const MONGODB_URL = process.env.MONGODB_URI || '';
 
 // NOTE: Ensure you have a running MongoDB instance or valid URI in .env
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URL)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
