@@ -72,7 +72,7 @@ export const getProject = async (req: Request, res: Response) => {
     const totalTasks = tasks.length;
     
     // Calculate completed milestones
-    const uniqueMilestones = [...new Set(tasks.map(t => t.milestone).filter(Boolean))];
+    const uniqueMilestones = Array.from(new Set(tasks.map(t => t.milestone).filter(Boolean)));
     let milestonesDone = 0;
     uniqueMilestones.forEach(m => {
         const milestoneTasks = tasks.filter(t => t.milestone === m);
