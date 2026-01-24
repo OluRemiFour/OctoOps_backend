@@ -12,17 +12,45 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'https://octo-ops.vercel.app',
+  'https://octoops-phi.vercel.app',
   'https://octoops-backend.onrender.com'
 ];
 
+// Diagnostic Logging for CORS
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log(`Incoming request from origin: ${origin} | Method: ${req.method} | Path: ${req.path}`);
+  next();
+});
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // If no origin (like mobile apps or curl) or origin is in allowed list
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS Blocked: Origin ${origin} not in allowed list`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Handle Preflight OPTIONS requests globally
+app.options('*', cors());
+
+// Diagnostic Logging for CORS (moved after options)
+app.use((req, res, next) => {
+  if (req.method !== 'OPTIONS') {
+    const origin = req.headers.origin;
+    console.log(`Incoming ${req.method} request from origin: ${origin} | Path: ${req.path}`);
+  }
+  next();
+});
 
 // Database Connection
 const MONGODB_URL = process.env.MONGODB_URI || '';
