@@ -22,15 +22,15 @@ const TaskSchema = new mongoose.Schema({
     enum: ['todo', 'in-progress', 'in-review', 'done', 'blocked'], 
     default: 'todo' 
   },
-  assignee: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  assignee: { type: String, ref: 'User' },
   assigneeName: String, // Denormalized for quick access
   deadline: Date,
   priority: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
   milestone: String,
-  dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
+  dependencies: [{ type: String, ref: 'Task' }],
   projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
   attachments: [String], // URLs or file paths
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: String, ref: 'User' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -60,7 +60,7 @@ const TeamInviteSchema = new mongoose.Schema({
   role: { type: String, enum: ['member', 'qa'], required: true },
   status: { type: String, enum: ['pending', 'accepted', 'rejected', 'expired'], default: 'pending' },
   projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
-  invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  invitedBy: { type: String, ref: 'User', required: true },
   inviteCode: { type: String, required: true, unique: true },
   expiresAt: Date,
   acceptedAt: Date,
@@ -94,14 +94,14 @@ export const Settings = mongoose.model('Settings', SettingsSchema);
 const ProjectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: String,
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  team: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  ownerId: { type: String, ref: 'User', required: true },
+  team: [{ type: String, ref: 'User' }],
   totalMilestones: { type: Number, default: 0 },
   milestonesCompleted: { type: Number, default: 0 },
   healthScore: { type: Number, default: 100, min: 0, max: 100 },
   progress: { type: Number, default: 0, min: 0, max: 100 },
   deadline: Date,
-  status: { type: String, enum: ['active', 'completed', 'archived'], default: 'active' },
+  status: { type: String, enum: ['active', 'completed', 'archived', 'launching'], default: 'active' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
