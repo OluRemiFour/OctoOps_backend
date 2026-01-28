@@ -13,17 +13,14 @@ export const createProject = async (req: Request, res: Response) => {
         totalMilestones: totalMilestones || 0,
         deadline,
         ownerId,
-        team: [ownerId] // Owner is first member
+        team: [ownerId] 
     });
 
-    // Create default settings for project
     await Settings.create({ projectId: project._id });
 
-    // Process Invites (Create placeholder users)
     if (invites && invites.length > 0) {
         for (const invite of invites) {
             if (invite.email) {
-                // Check if user exists, else create placeholder
                 let invitee = await User.findOne({ email: invite.email });
                 if (!invitee) {
                     invitee = await User.create({
@@ -144,9 +141,7 @@ export const getProject = async (req: Request, res: Response) => {
     // Impact of delays
     score -= (overdueTasks * 5);
     score -= (blockedTasks * 3);
-    
-    // Impact of risks (from manual risks)
-    // autoRisks are calculated on the fly, but we should use DB risks too
+
     const dbRisks = await Risk.find({ projectId: project._id, resolved: false });
     dbRisks.forEach(r => {
         if (r.severity === 'critical') score -= 10;
@@ -159,7 +154,7 @@ export const getProject = async (req: Request, res: Response) => {
     projectObj.progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     projectObj.milestonesCompleted = milestonesDone;
     projectObj.autoRisks = autoRisks;
-    projectObj.healthScore = project.healthScore; // Use last persisted score
+    projectObj.healthScore = project.healthScore; 
     
     res.json(projectObj);
   } catch (error) {
