@@ -6,6 +6,7 @@ import sgMail from '@sendgrid/mail';
 import { io } from '../server';
 import { matchTasksToRole } from '../services/geminiService';
 import { assignInitialTasksToMember } from '../services/taskAssignmentService';
+import { updateProjectStats } from '../utils/projectUtils';
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -197,16 +198,16 @@ export const acceptInvite: RequestHandler = async (req, res) => {
             
             assignedTasks = result.assignedTasks;
 
-            io.to(`project:${invite.projectId}`).emit('team-updated', {
-              projectId: invite.projectId,
+            io.to(`project:${invite.projectId.toString()}`).emit('team-updated', {
+              projectId: invite.projectId.toString(),
               newMember: user,
               teamCount: projectTeamCount,
               tasksAssigned: assignedTasks.length
             });
             
             if (assignedTasks.length > 0) {
-              io.to(`project:${invite.projectId}`).emit('tasks-updated', {
-                projectId: invite.projectId
+              io.to(`project:${invite.projectId.toString()}`).emit('tasks-updated', {
+                projectId: invite.projectId.toString()
               });
             }
         }
@@ -318,8 +319,16 @@ export const updateMemberRole: RequestHandler = async (req, res) => {
     console.log(`[RoleChange] Updating tasks for ${user.email} (New Role: ${permissionRole})`);
     
     // 1. Unassign current 'todo' or 'in-progress' tasks
+    const mUserId = new mongoose.Types.ObjectId(userId);
     await Task.updateMany(
-        { assignee: userId, status: { $in: ['todo', 'in-progress'] } },
+        { 
+            $or: [
+                { assignee: mUserId },
+                { assignee: userId },
+                { assigneeEmail: user.email }
+            ], 
+            status: { $in: ['todo', 'in-progress'] } 
+        },
         { 
             $set: { 
                 assignee: null, 
@@ -329,6 +338,14 @@ export const updateMemberRole: RequestHandler = async (req, res) => {
             } 
         }
     );
+
+    // Initial project context for socket
+    const initialProject = await Project.findOne({ team: userId });
+    if (initialProject) {
+        io.to(`project:${initialProject._id.toString()}`).emit('tasks-updated', {
+            projectId: initialProject._id.toString()
+        });
+    }
 
     // 2. Trigger auto-assignment for the new role
     const projectContext = await Project.findOne({ team: userId });
@@ -343,13 +360,16 @@ export const updateMemberRole: RequestHandler = async (req, res) => {
             }, projectContext._id.toString());
             
             // Notify clients
-            io.to(`project:${projectContext._id}`).emit('team-updated', {
-              projectId: projectContext._id,
+            io.to(`project:${projectContext._id.toString()}`).emit('team-updated', {
+              projectId: projectContext._id.toString(),
               newMember: user
             });
-            io.to(`project:${projectContext._id}`).emit('tasks-updated', {
-                 projectId: projectContext._id
+            io.to(`project:${projectContext._id.toString()}`).emit('tasks-updated', {
+                 projectId: projectContext._id.toString()
             });
+            if (projectContext._id) {
+                await updateProjectStats(projectContext._id.toString());
+            }
          } catch (assignError) {
              console.error('[RoleChange] Auto-assignment failed:', assignError);
          }

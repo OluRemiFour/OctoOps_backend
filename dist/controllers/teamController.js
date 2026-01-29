@@ -14,10 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cancelInvite = exports.updateMemberRole = exports.removeTeamMember = exports.acceptInvite = exports.inviteTeamMember = exports.getTeamMembers = void 0;
 const schemas_1 = require("../models/schemas");
+const mongoose_1 = __importDefault(require("mongoose"));
 const crypto_1 = __importDefault(require("crypto"));
 const mail_1 = __importDefault(require("@sendgrid/mail"));
 const server_1 = require("../server");
 const taskAssignmentService_1 = require("../services/taskAssignmentService");
+const projectUtils_1 = require("../utils/projectUtils");
 if (process.env.SENDGRID_API_KEY) {
     mail_1.default.setApiKey(process.env.SENDGRID_API_KEY);
 }
@@ -183,15 +185,15 @@ const acceptInvite = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 }, invite.projectId);
                 console.log(`[acceptInvite] Assignment result: ${(_a = result.assignedTasks) === null || _a === void 0 ? void 0 : _a.length} tasks assigned.`);
                 assignedTasks = result.assignedTasks;
-                server_1.io.to(`project:${invite.projectId}`).emit('team-updated', {
-                    projectId: invite.projectId,
+                server_1.io.to(`project:${invite.projectId.toString()}`).emit('team-updated', {
+                    projectId: invite.projectId.toString(),
                     newMember: user,
                     teamCount: projectTeamCount,
                     tasksAssigned: assignedTasks.length
                 });
                 if (assignedTasks.length > 0) {
-                    server_1.io.to(`project:${invite.projectId}`).emit('tasks-updated', {
-                        projectId: invite.projectId
+                    server_1.io.to(`project:${invite.projectId.toString()}`).emit('tasks-updated', {
+                        projectId: invite.projectId.toString()
                     });
                 }
             }
@@ -281,7 +283,15 @@ const updateMemberRole = (req, res) => __awaiter(void 0, void 0, void 0, functio
         // FIX: Unassign old tasks and assign new ones
         console.log(`[RoleChange] Updating tasks for ${user.email} (New Role: ${permissionRole})`);
         // 1. Unassign current 'todo' or 'in-progress' tasks
-        yield schemas_1.Task.updateMany({ assignee: userId, status: { $in: ['todo', 'in-progress'] } }, {
+        const mUserId = new mongoose_1.default.Types.ObjectId(userId);
+        yield schemas_1.Task.updateMany({
+            $or: [
+                { assignee: mUserId },
+                { assignee: userId },
+                { assigneeEmail: user.email }
+            ],
+            status: { $in: ['todo', 'in-progress'] }
+        }, {
             $set: {
                 assignee: null,
                 assigneeName: null,
@@ -289,6 +299,13 @@ const updateMemberRole = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 status: 'todo'
             }
         });
+        // Initial project context for socket
+        const initialProject = yield schemas_1.Project.findOne({ team: userId });
+        if (initialProject) {
+            server_1.io.to(`project:${initialProject._id.toString()}`).emit('tasks-updated', {
+                projectId: initialProject._id.toString()
+            });
+        }
         // 2. Trigger auto-assignment for the new role
         const projectContext = yield schemas_1.Project.findOne({ team: userId });
         if (projectContext) {
@@ -301,13 +318,16 @@ const updateMemberRole = (req, res) => __awaiter(void 0, void 0, void 0, functio
                     title: user.title || undefined
                 }, projectContext._id.toString());
                 // Notify clients
-                server_1.io.to(`project:${projectContext._id}`).emit('team-updated', {
-                    projectId: projectContext._id,
+                server_1.io.to(`project:${projectContext._id.toString()}`).emit('team-updated', {
+                    projectId: projectContext._id.toString(),
                     newMember: user
                 });
-                server_1.io.to(`project:${projectContext._id}`).emit('tasks-updated', {
-                    projectId: projectContext._id
+                server_1.io.to(`project:${projectContext._id.toString()}`).emit('tasks-updated', {
+                    projectId: projectContext._id.toString()
                 });
+                if (projectContext._id) {
+                    yield (0, projectUtils_1.updateProjectStats)(projectContext._id.toString());
+                }
             }
             catch (assignError) {
                 console.error('[RoleChange] Auto-assignment failed:', assignError);

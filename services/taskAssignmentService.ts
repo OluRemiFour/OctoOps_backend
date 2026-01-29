@@ -74,10 +74,33 @@ export const assignInitialTasksToMember = async (
         for (const taskId of aiMatchedIds) {
             if (assignedTasks.length >= maxAssignments) break;
             
-            const task = unassignedTasks.find(t => t._id.toString() === taskId.toString());
-            if (task) {
-                await assignTaskToUser(task, user);
-                assignedTasks.push(task);
+            // Atomic update to claim the task
+            const claimedTask = await Task.findOneAndUpdate(
+                { 
+                    _id: taskId,
+                    $or: [
+                        { assignee: null },
+                        { assignee: { $exists: false } },
+                        { assignee: "" },
+                        { assignee: "null" },
+                        { assignee: "undefined" },
+                        { assignee: "none" },
+                        { assignee: "unassigned" }
+                    ]
+                },
+                { 
+                    $set: { 
+                        assignee: user._id.toString(),
+                        assigneeName: user.name,
+                        assigneeEmail: user.email
+                    } 
+                },
+                { new: true }
+            );
+
+            if (claimedTask) {
+                assignedTasks.push(claimedTask);
+                console.log(`[AutoAssign] AI Match Claimed: ${claimedTask.title}`);
             }
         }
 
@@ -108,9 +131,34 @@ export const assignInitialTasksToMember = async (
                     const desc = (task.description || '').toLowerCase();
 
                     if (keywords.some(k => title.includes(k) || desc.includes(k))) {
-                        await assignTaskToUser(task, user);
-                        assignedTasks.push(task);
-                        console.log(`[AutoAssign] Keyword match: ${task.title}`);
+                        // Atomic update to claim the task
+                        const claimedTask = await Task.findOneAndUpdate(
+                            { 
+                                _id: task._id,
+                                $or: [
+                                    { assignee: null },
+                                    { assignee: { $exists: false } },
+                                    { assignee: "" },
+                                    { assignee: "null" },
+                                    { assignee: "undefined" },
+                                    { assignee: "none" },
+                                    { assignee: "unassigned" }
+                                ]
+                            },
+                            { 
+                                $set: { 
+                                    assignee: user._id.toString(),
+                                    assigneeName: user.name,
+                                    assigneeEmail: user.email
+                                } 
+                            },
+                            { new: true }
+                        );
+
+                        if (claimedTask) {
+                            assignedTasks.push(claimedTask);
+                            console.log(`[AutoAssign] Keyword Match Claimed: ${claimedTask.title}`);
+                        }
                     }
                 }
             } else {
