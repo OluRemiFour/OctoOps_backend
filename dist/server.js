@@ -15,19 +15,15 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://octo-ops.vercel.app',
+    process.env.FRONTEND_URL
+].filter(Boolean);
 const httpServer = (0, http_1.createServer)(app);
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
-app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://octo-ops.vercel.app',
-    'https://octoops-phi.vercel.app',
-    'https://octo-ops-backend.onrender.com',
-    'https://octoops-backend.onrender.com'
-];
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     console.log(`Incoming request from origin: ${origin} | Method: ${req.method} | Path: ${req.path}`);
@@ -48,6 +44,7 @@ app.use((0, cors_1.default)({
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     optionsSuccessStatus: 200
 }));
+app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 app.use(express_1.default.json());
 const io = new socket_io_1.Server(httpServer, {
     cors: {

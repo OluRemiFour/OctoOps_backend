@@ -278,6 +278,41 @@ const updateMemberRole = (req, res) => __awaiter(void 0, void 0, void 0, functio
             res.status(404).json({ error: 'User not found' });
             return;
         }
+        // FIX: Unassign old tasks and assign new ones
+        console.log(`[RoleChange] Updating tasks for ${user.email} (New Role: ${permissionRole})`);
+        // 1. Unassign current 'todo' or 'in-progress' tasks
+        yield schemas_1.Task.updateMany({ assignee: userId, status: { $in: ['todo', 'in-progress'] } }, {
+            $set: {
+                assignee: null,
+                assigneeName: null,
+                assigneeEmail: null,
+                status: 'todo'
+            }
+        });
+        // 2. Trigger auto-assignment for the new role
+        const projectContext = yield schemas_1.Project.findOne({ team: userId });
+        if (projectContext) {
+            try {
+                yield (0, taskAssignmentService_1.assignInitialTasksToMember)({
+                    _id: user._id.toString(),
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    title: user.title || undefined
+                }, projectContext._id.toString());
+                // Notify clients
+                server_1.io.to(`project:${projectContext._id}`).emit('team-updated', {
+                    projectId: projectContext._id,
+                    newMember: user
+                });
+                server_1.io.to(`project:${projectContext._id}`).emit('tasks-updated', {
+                    projectId: projectContext._id
+                });
+            }
+            catch (assignError) {
+                console.error('[RoleChange] Auto-assignment failed:', assignError);
+            }
+        }
         res.json(user);
     }
     catch (error) {
